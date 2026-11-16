@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BI Ambiental | Impacto das Queimadas na Caatinga</title>
+    <!-- Tailwind CSS para estilização moderna e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js para visualizações interativas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Plugin Chart.js DataLabels para exibir valores diretamente nas barras -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <!-- Fonte Inter para legibilidade executiva -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        preservada: {
+                            DEFAULT: '#2E7D32',
+                            light: '#E8F5E9',
+                            dark: '#1B5E20'
+                        },
+                        queimada: {
+                            DEFAULT: '#C62828',
+                            light: '#FFEBEE',
+                            dark: '#8E0000'
+                        },
+                        alerta: {
+                            DEFAULT: '#D97706',
+                            light: '#FEF3C7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #F8FAFC;
+            color: #1E293B;
+            font-family: 'Inter', sans-serif;
+        }
+        /* Estilo customizado para cartões estilo Power BI / Tableau */
+        .bi-card {
+            background: #FFFFFF;
+            border-radius: 12px;
+            border: 1px solid #E2E8F0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
+        }
+        .bi-card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.03);
+        }
+        /* Ocultar elementos desnecessários na impressão */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: #FFFFFF;
+            }
+            .bi-card {
+                box-shadow: none;
+                border: 1px solid #CBD5E1;
+                break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+    <!-- Notificação Toast (Substitui alert()) -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium no-print">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+        <span id="toast-message">Ação concluída com sucesso!</span>
+    </div>
+
+    <!-- Cabeçalho Executivo -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex items-start sm:items-center gap-3.5">
+                    <!-- Ícone SVG Temático -->
+                    <div class="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center flex-shrink-0 text-preservada">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h1 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                                Impacto das Queimadas nos Ciclos Biogeoquímicos e Hídricos da Caatinga
+                            </h1>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                BI Ambiental
+                            </span>
+                        </div>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
+                            Métrica base: <strong class="text-slate-700 font-semibold">% do Nível de Referência</strong> • Análise comparativa de degradação do solo no semiárido
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Botões de Ação (Exportar CSV & Imprimir) -->
+                <div class="flex items-center gap-2.5 no-print">
+                    <button onclick="resetFilters()" class="px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1.5" title="Restaurar todos os filtros">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Limpar Filtros
+                    </button>
+                    <button onclick="exportCSV()" class="px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-sm transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Exportar CSV
+                    </button>
+                    <button onclick="window.print()" class="px-3.5 py-2 text-xs sm:text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                        Imprimir Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteúdo Principal -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Barra de Filtros Interativos (Slicers) -->
+        <section class="bi-card p-4 no-print" aria-label="Filtros do Painel">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span>Segmentação de Dados (Slicers):</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-grow max-w-4xl">
+                    <!-- Filtro 1: Ciclo -->
+                    <div>
+                        <label for="filter-ciclo" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                            Ciclo Biogeoquímico / Hídrico
+                        </label>
+                        <select id="filter-ciclo" onchange="handleCicloChange()" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 focus:border-preservada focus:bg-white focus:outline-none focus:ring-2 focus:ring-preservada/20">
+                            <option value="Todos">Todos os Ciclos (4 Indicadores)</option>
+                            <option value="Ciclo da Água">Ciclo da Água (2 Indicadores)</option>
+                            <option value="Ciclo do Carbono">Ciclo do Carbono (1 Indicador)</option>
+                            <option value="Ciclo do Nitrogênio">Ciclo do Nitrogênio (1 Indicador)</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro 2: Indicador Específico -->
+                    <div>
+                        <label for="filter-indicador" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                            Indicador Ambiental
+                        </label>
+                        <select id="filter-indicador" onchange="updateDashboard()" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 focus:border-preservada focus:bg-white focus:outline-none focus:ring-2 focus:ring-preservada/20">
+                            <option value="Todos">Todos os Indicadores</option>
+                            <option value="Umidade do Solo">Umidade do Solo</option>
+                            <option value="Carbono Orgânico">Carbono Orgânico</option>
+                            <option value="Nitrogênio Total">Nitrogênio Total</option>
+                            <option value="Infiltração">Infiltração</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro 3: Modo de Visualização / Cenário -->
+                    <div>
+                        <label for="filter-cenario" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                            Cenário de Visualização
+                        </label>
+                        <select id="filter-cenario" onchange="updateDashboard()" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 focus:border-preservada focus:bg-white focus:outline-none focus:ring-2 focus:ring-preservada/20">
+                            <option value="comparativo">Comparativo Lado a Lado</option>
+                            <option value="preservada">Apenas Caatinga Preservada</option>
+                            <option value="queimada">Apenas Caatinga Queimada</option>
+                            <option value="deficit">Déficit / Perda Absoluta (p.p.)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cartões de KPI Dinâmicos -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Indicadores Chave de Desempenho">
+            <!-- KPI 1: Média Preservada -->
+            <div class="bi-card p-5 border-l-4 border-l-preservada">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Caatinga Preservada</span>
+                    <span class="p-1.5 rounded-lg bg-preservada-light text-preservada">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </span>
+                </div>
+                <div class="mt-3 flex items-baseline gap-2">
+                    <span id="kpi-preservada" class="text-3xl font-extrabold text-slate-900">87,5%</span>
+                    <span class="text-xs font-medium text-preservada bg-preservada-light px-2 py-0.5 rounded-full">Referência</span>
+                </div>
+                <p id="kpi-preservada-sub" class="text-xs text-slate-500 mt-2">Média dos 4 indicadores selecionados</p>
+            </div>
+
+            <!-- KPI 2: Média Queimada -->
+            <div class="bi-card p-5 border-l-4 border-l-queimada">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Caatinga Queimada</span>
+                    <span class="p-1.5 rounded-lg bg-queimada-light text-queimada">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                        </svg>
+                    </span>
+                </div>
+                <div class="mt-3 flex items-baseline gap-2">
+                    <span id="kpi-queimada" class="text-3xl font-extrabold text-queimada">32,5%</span>
+                    <span id="kpi-retencao" class="text-xs font-medium text-queimada bg-queimada-light px-2 py-0.5 rounded-full">Retém 37,1%</span>
+                </div>
+                <p id="kpi-queimada-sub" class="text-xs text-slate-500 mt-2">Nível residual pós-incêndio</p>
+            </div>
+
+            <!-- KPI 3: Perda Média Absoluta -->
+            <div class="bi-card p-5 border-l-4 border-l-amber-500">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Perda Média Absoluta</span>
+                    <span class="p-1.5 rounded-lg bg-amber-50 text-amber-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                        </svg>
+                    </span>
+                </div>
+                <div class="mt-3 flex items-baseline gap-2">
+                    <span id="kpi-perda-pp" class="text-3xl font-extrabold text-slate-900">-55,0 p.p.</span>
+                    <span id="kpi-perda-rel" class="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">-62,6%</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-2">Queda média em pontos percentuais</p>
+            </div>
+
+            <!-- KPI 4: Indicador Mais Crítico -->
+            <div class="bi-card p-5 border-l-4 border-l-slate-800 bg-slate-900 text-white">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Indicador Mais Crítico</span>
+                    <span class="p-1.5 rounded-lg bg-red-500/20 text-red-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <div id="kpi-critico-nome" class="text-xl font-bold text-white truncate">Infiltração</div>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span id="kpi-critico-valor" class="text-sm font-bold text-red-400">-70 p.p. (-73,68%)</span>
+                    </div>
+                </div>
+                <p id="kpi-critico-ciclo" class="text-xs text-slate-400 mt-2">Ciclo da Água • Maior colapso</p>
+            </div>
+        </section>
+
+        <!-- Grade Principal de Visualizações -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Gráfico Principal: Barras Agrupadas (7 colunas) -->
+            <div class="bi-card p-5 lg:col-span-7 flex flex-col">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                    <div>
+                        <h2 id="main-chart-title" class="text-base font-bold text-slate-900">
+                            Comparativo de Indicadores: Preservada vs. Queimada
+                        </h2>
+                        <p id="main-chart-subtitle" class="text-xs text-slate-500">
+                            Valores expressos em % do Nível de Referência (clique em uma barra para filtrar)
+                        </p>
+                    </div>
+                    <!-- Legenda Customizada -->
+                    <div id="main-chart-legend" class="flex items-center gap-4 text-xs font-medium">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-sm bg-preservada inline-block"></span>
+                            <span class="text-slate-700">Preservada</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-sm bg-queimada inline-block"></span>
+                            <span class="text-slate-700">Queimada</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative flex-grow min-h-[320px] w-full">
+                    <canvas id="mainBarChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico Secundário: Radar de Equilíbrio Ecossistêmico (5 colunas) -->
+            <div class="bi-card p-5 lg:col-span-5 flex flex-col">
+                <div class="mb-4">
+                    <h2 class="text-base font-bold text-slate-900">
+                        Equilíbrio Ecossistêmico (Polígono de Integridade)
+                    </h2>
+                    <p class="text-xs text-slate-500">
+                        Encolhimento da capacidade funcional do solo após queimada
+                    </p>
+                </div>
+                <div class="relative flex-grow min-h-[320px] w-full flex items-center justify-center">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Segunda Linha: Gráfico de Severidade de Perda + Painel Dinâmico de Data Storytelling -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Gráfico de Barras Horizontais de Impacto (5 colunas) -->
+            <div class="bi-card p-5 lg:col-span-5 flex flex-col">
+                <div class="mb-4">
+                    <h2 class="text-base font-bold text-slate-900">
+                        Magnitude do Impacto (Queda em p.p.)
+                    </h2>
+                    <p class="text-xs text-slate-500">
+                        Ordenado do maior para o menor déficit absoluto em pontos percentuais
+                    </p>
+                </div>
+                <div class="relative flex-grow min-h-[260px] w-full">
+                    <canvas id="impactHorizontalChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Painel Dinâmico de Data Storytelling (7 colunas) -->
+            <div class="bi-card p-6 lg:col-span-7 bg-gradient-to-br from-white to-slate-50 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-1 rounded-md bg-slate-900 text-white text-[11px] font-bold uppercase tracking-wider">
+                                Data Storytelling
+                            </span>
+                            <h2 id="story-title" class="text-base font-bold text-slate-900">
+                                Narrativa Executiva: Visão Geral da Caatinga
+                            </h2>
+                        </div>
+                        <span id="story-badge" class="text-xs font-semibold text-preservada bg-preservada-light px-2.5 py-1 rounded-full">
+                            Todos os Ciclos
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <!-- 1. Contexto -->
+                        <div class="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-sm">
+                            <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-preservada mb-1.5">
+                                <span class="w-2 h-2 rounded-full bg-preservada"></span>
+                                1. Contexto (Equilíbrio)
+                            </div>
+                            <p id="story-context" class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                                Na Caatinga Preservada, o solo opera em alta eficiência: mantém 95% de infiltração e 80% de umidade, além de elevados estoques de carbono (90%) e nitrogênio (85%) que sustentam a biodiversidade semiárida.
+                            </p>
+                        </div>
+
+                        <!-- 2. Conflito -->
+                        <div class="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-sm">
+                            <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-queimada mb-1.5">
+                                <span class="w-2 h-2 rounded-full bg-queimada"></span>
+                                2. Conflito (Ruptura pelo Fogo)
+                            </div>
+                            <p id="story-conflict" class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                                O fogo destrói a cobertura vegetal e volatiliza nutrientes. Todos os indicadores sofrem perdas superiores a 55% de seus valores originais, reduzindo a média geral de 87,5% para apenas 32,5%.
+                            </p>
+                        </div>
+
+                        <!-- 3. Clímax -->
+                        <div class="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                            <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800 mb-1.5">
+                                <span class="w-2 h-2 rounded-full bg-amber-600"></span>
+                                3. Clímax (Descoberta Crítica)
+                            </div>
+                            <p id="story-climax" class="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
+                                O colapso mais severo ocorre na Infiltração (-70 p.p. ou -73,68%). Sem absorver a água das chuvas escassas, o solo impermeabilizado acelera a erosão e a desertificação.
+                            </p>
+                        </div>
+
+                        <!-- 4. Resolução / Recomendação -->
+                        <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+                            <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-preservada-dark mb-1.5">
+                                <span class="w-2 h-2 rounded-full bg-preservada-dark"></span>
+                                4. Recomendação Estratégica
+                            </div>
+                            <p id="story-resolution" class="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
+                                Priorizar brigadas preventivas de incêndio, aceiros e recomposição da serrapilheira para restaurar a porosidade do solo e reativar os ciclos hídrico e biogeoquímico.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Tabela Analítica Interativa -->
+        <section class="bi-card overflow-hidden">
+            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900">
+                        Matriz Analítica Detalhada dos Indicadores
+                    </h2>
+                    <p class="text-xs text-slate-500">
+                        Clique nos cabeçalhos das colunas para ordenar os dados • Barras proporcionais ao nível de referência
+                    </p>
+                </div>
+                <span id="table-count" class="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full self-start sm:self-auto">
+                    Exibindo 4 de 4 indicadores
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 select-none">
+                            <th class="py-3.5 px-5 cursor-pointer hover:text-slate-800" onclick="sortTable('indicador')">
+                                Indicador <span id="sort-indicador" class="ml-1">↕</span>
+                            </th>
+                            <th class="py-3.5 px-4 cursor-pointer hover:text-slate-800" onclick="sortTable('ciclo')">
+                                Ciclo Associado <span id="sort-ciclo" class="ml-1">↕</span>
+                            </th>
+                            <th class="py-3.5 px-4 cursor-pointer hover:text-slate-800" onclick="sortTable('preservada')">
+                                Caatinga Preservada <span id="sort-preservada" class="ml-1">↕</span>
+                            </th>
+                            <th class="py-3.5 px-4 cursor-pointer hover:text-slate-800" onclick="sortTable('queimada')">
+                                Caatinga Queimada <span id="sort-queimada" class="ml-1">↕</span>
+                            </th>
+                            <th class="py-3.5 px-4 cursor-pointer hover:text-slate-800" onclick="sortTable('quedaPP')">
+                                Queda Absoluta (p.p.) <span id="sort-quedaPP" class="ml-1">↓</span>
+                            </th>
+                            <th class="py-3.5 px-4 cursor-pointer hover:text-slate-800" onclick="sortTable('perdaRelativa')">
+                                Perda Relativa (%) <span id="sort-perdaRelativa" class="ml-1">↕</span>
+                            </th>
+                            <th class="py-3.5 px-5">
+                                Severidade
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="analytics-table-body" class="divide-y divide-slate-100 text-sm">
+                        <!-- Preenchido dinamicamente via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+            <span>Painel Interativo de Business Intelligence • Estudo de Impacto Ambiental na Caatinga</span>
+            <span>Métrica: % do Nível de Referência • Execução Local Autônoma</span>
+        </div>
+    </footer>
+
+    <!-- Lógica Completa do Dashboard BI -->
+    <script>
+        // =========================================================================
+        // 1. BASE DE DADOS EXATA E NARRATIVAS DE DATA STORYTELLING
+        // =========================================================================
+        const rawData = [
+            {
+                id: 'umidade',
+                indicador: 'Umidade do Solo',
+                ciclo: 'Ciclo da Água',
+                preservada: 80,
+                queimada: 35,
+                quedaPP: 45, // 80 - 35
+                perdaRelativa: -56.25, // ((35 - 80) / 80) * 100
+                severidade: 'Alta'
+            },
+            {
+                id: 'carbono',
+                indicador: 'Carbono Orgânico',
+                ciclo: 'Ciclo do Carbono',
+                preservada: 90,
+                queimada: 40,
+                quedaPP: 50, // 90 - 40
+                perdaRelativa: -55.56, // ((40 - 90) / 90) * 100
+                severidade: 'Alta'
+            },
+            {
+                id: 'nitrogenio',
+                indicador: 'Nitrogênio Total',
+                ciclo: 'Ciclo do Nitrogênio',
+                preservada: 85,
+                queimada: 30,
+                quedaPP: 55, // 85 - 30
+                perdaRelativa: -64.71, // ((30 - 85) / 85) * 100
+                severidade: 'Muito Alta'
+            },
+            {
+                id: 'infiltracao',
+                indicador: 'Infiltração',
+                ciclo: 'Ciclo da Água',
+                preservada: 95,
+                queimada: 25,
+                quedaPP: 70, // 95 - 25
+                perdaRelativa: -73.68, // ((25 - 95) / 95) * 100
+                severidade: 'Crítica'
+            }
+        ];
+
+        // Dicionário de narrativas adaptativas conforme filtro selecionado
+        const storytellingMap = {
+            'Todos': {
+                title: 'Narrativa Executiva: Visão Geral da Caatinga',
+                badge: 'Todos os Ciclos (4 Indicadores)',
+                context: 'Na Caatinga Preservada, o solo opera em alta eficiência: mantém 95% de infiltração e 80% de umidade, além de elevados estoques de carbono (90%) e nitrogênio (85%) que sustentam a biodiversidade semiárida.',
+                conflict: 'O fogo destrói a cobertura vegetal e volatiliza nutrientes. Todos os indicadores sofrem perdas superiores a 55% de seus valores originais, reduzindo a média geral de 87,5% para apenas 32,5%.',
+                climax: 'O colapso mais severo ocorre na Infiltração (-70 p.p. ou -73,68%). Sem absorver a água das chuvas escassas, o solo impermeabilizado acelera a erosão e a desertificação.',
+                resolution: 'Priorizar brigadas preventivas de incêndio, aceiros e recomposição da serrapilheira para restaurar a porosidade do solo e reativar os ciclos hídrico e biogeoquímico.'
+            },
+            'Ciclo da Água': {
+                title: 'Foco Hídrico: Colapso na Retenção de Água',
+                badge: 'Ciclo da Água',
+                context: 'Em equilíbrio, a vegetação nativa e a serrapilheira protegem o solo contra a radiação solar direta, garantindo 95% de capacidade de infiltração e 80% de umidade retida.',
+                conflict: 'Com a queimada, o solo fica exposto e sofre selamento superficial. A infiltração despenca para 25% (-70 p.p.) e a umidade cai para 35% (-45 p.p.).',
+                climax: 'A perda de 73,68% na infiltração transforma chuvas benéficas em enxurradas erosivas, impedindo a recarga do lençol freático no semiárido.',
+                resolution: 'Implementar barreiras de contenção, cobertura morta e reflorestamento ciliar para reabrir os poros do solo e reter umidade.'
+            },
+            'Ciclo do Carbono': {
+                title: 'Foco Biogeoquímico: Perda de Carbono Orgânico',
+                badge: 'Ciclo do Carbono',
+                context: 'A Caatinga Preservada atua como importante sumidouro de carbono no semiárido, mantendo 90% do nível de referência na matéria orgânica do solo.',
+                conflict: 'A combustão da biomassa libera CO₂ para a atmosfera e reduz o carbono orgânico do solo de 90% para 40%, uma perda de 50 pontos percentuais (-55,56%).',
+                climax: 'Sem carbono orgânico, o solo perde sua estrutura agregada, capacidade de troca catiônica e atividade microbiana essencial.',
+                resolution: 'Adotar manejo agroecológico sem uso do fogo e incorporação de matéria orgânica para sequestrar carbono novamente no solo.'
+            },
+            'Ciclo do Nitrogênio': {
+                title: 'Foco Nutricional: Volatilização do Nitrogênio',
+                badge: 'Ciclo do Nitrogênio',
+                context: 'Bactérias fixadoras e a ciclagem natural mantêm o Nitrogênio Total em 85% do nível de referência, garantindo a fertilidade natural da Caatinga.',
+                conflict: 'O calor intenso das queimadas volatiliza o nitrogênio rapidamente, derrubando o indicador de 85% para apenas 30% (-55 pontos percentuais).',
+                climax: 'Uma redução relativa de 64,71% compromete diretamente a síntese de proteínas das plantas e retarda severamente a regeneração natural da flora.',
+                resolution: 'Introduzir leguminosas nativas fixadoras de nitrogênio (como sabiá e jurema) nas áreas degradadas para acelerar a recuperação nutricional.'
+            },
+            'Umidade do Solo': {
+                title: 'Indicador: Umidade do Solo',
+                badge: 'Ciclo da Água • Umidade',
+                context: 'Sob o dossel da Caatinga preservada, a evaporação é controlada, mantendo a umidade do solo em 80% do nível de referência.',
+                conflict: 'A remoção da sombra e da cobertura morta expõe o solo ao sol intenso, reduzindo a umidade para 35% (queda de 45 p.p. ou -56,25%).',
+                climax: 'O ressecamento extremo elimina a microfauna do solo e impede a germinação de sementes nativas durante a estação chuvosa.',
+                resolution: 'Manter cobertura vegetal permanente e evitar o desmatamento/queima para preservar o microclima úmido do solo.'
+            },
+            'Carbono Orgânico': {
+                title: 'Indicador: Carbono Orgânico',
+                badge: 'Ciclo do Carbono • Estoque',
+                context: 'O estoque de carbono orgânico atinge 90% na área preservada, refletindo séculos de acúmulo de biomassa radicular e serrapilheira.',
+                conflict: 'A passagem do fogo consome a camada superficial rica em húmus, derrubando o índice para 40% (-50 p.p. ou -55,56%).',
+                climax: 'A perda de mais da metade do carbono transforma o ecossistema de sumidouro em fonte emissora de gases de efeito estufa.',
+                resolution: 'Substituir a coivara (queima para limpeza de terreno) por trituração de galhos e compostagem.'
+            },
+            'Nitrogênio Total': {
+                title: 'Indicador: Nitrogênio Total',
+                badge: 'Ciclo do Nitrogênio • Fertilidade',
+                context: 'Com 85% do nível de referência, o Nitrogênio Total sustenta o rebrote vigoroso da Caatinga após as primeiras chuvas.',
+                conflict: 'O fogo provoca a perda de 55 pontos percentuais, reduzindo o estoque para 30% (-64,71% de perda relativa).',
+                climax: 'É o segundo indicador mais atingido em termos percentuais, criando um gargalo nutricional que empobrece o solo por anos.',
+                resolution: 'Proteger áreas contra reincidência de fogo para permitir o restabelecimento da microbiota fixadora de nitrogênio.'
+            },
+            'Infiltração': {
+                title: 'Indicador Crítico: Infiltração de Água',
+                badge: 'Ciclo da Água • Alerta Máximo',
+                context: 'Na Caatinga Preservada, as raízes profundas e a matéria orgânica criam canais que permitem 95% de infiltração da água da chuva.',
+                conflict: 'O fogo destrói essa estrutura porosa e cria uma crosta hidrofóbica, fazendo a infiltração desabar para apenas 25% (-70 p.p.).',
+                climax: 'Com -73,68% de perda relativa, a Infiltração representa o maior abismo de todo o estudo, sendo o gatilho principal da desertificação.',
+                resolution: 'Ação emergencial de controle de queimadas e técnicas de captação de água in situ (barraginhas e curvas de nível).'
+            }
+        };
+
+        // =========================================================================
+        // 2. ESTADO DA APLICAÇÃO E INSTÂNCIAS DOS GRÁFICOS
+        // =========================================================================
+        let mainBarChartInstance = null;
+        let radarChartInstance = null;
+        let impactHorizontalChartInstance = null;
+
+        let currentSort = {
+            column: 'quedaPP',
+            direction: 'desc' // Maior queda primeiro por padrão
+        };
+
+        // Registrar plugin de datalabels globalmente
+        Chart.register(ChartDataLabels);
+
+        // =========================================================================
+        // 3. FUNÇÕES DE FILTRAGEM E ATUALIZAÇÃO DO PAINEL
+        // =========================================================================
+        function handleCicloChange() {
+            const cicloSelecionado = document.getElementById('filter-ciclo').value;
+            const indicadorSelect = document.getElementById('filter-indicador');
+
+            // Atualiza opções do dropdown de indicador conforme o ciclo escolhido
+            indicadorSelect.innerHTML = '<option value="Todos">Todos os Indicadores</option>';
+            
+            const opcoesFiltradas = cicloSelecionado === 'Todos' 
+                ? rawData 
+                : rawData.filter(d => d.ciclo === cicloSelecionado);
+
+            opcoesFiltradas.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.indicador;
+                option.textContent = item.indicador;
+                indicadorSelect.appendChild(option);
+            });
+
+            updateDashboard();
+        }
+
+        function getFilteredData() {
+            const ciclo = document.getElementById('filter-ciclo').value;
+            const indicador = document.getElementById('filter-indicador').value;
+
+            return rawData.filter(item => {
+                const matchCiclo = (ciclo === 'Todos') || (item.ciclo === ciclo);
+                const matchIndicador = (indicador === 'Todos') || (item.indicador === indicador);
+                return matchCiclo && matchIndicador;
+            });
+        }
+
+        function resetFilters() {
+            document.getElementById('filter-ciclo').value = 'Todos';
+            handleCicloChange();
+            document.getElementById('filter-cenario').value = 'comparativo';
+            updateDashboard();
+            showToast('Filtros restaurados para a visão completa.');
+        }
+
+        function updateDashboard() {
+            const filteredData = getFilteredData();
+            const cenario = document.getElementById('filter-cenario').value;
+
+            updateKPIs(filteredData);
+            updateMainBarChart(filteredData, cenario);
+            updateRadarChart(filteredData);
+            updateImpactChart(filteredData);
+            updateStorytelling();
+            renderTable(filteredData);
+        }
+
+        // =========================================================================
+        // 4. ATUALIZAÇÃO DOS CARTÕES DE KPI
+        // =========================================================================
+        function updateKPIs(data) {
+            if (data.length === 0) return;
+
+            const sumPreservada = data.reduce((acc, item) => acc + item.preservada, 0);
+            const sumQueimada = data.reduce((acc, item) => acc + item.queimada, 0);
+            const sumQuedaPP = data.reduce((acc, item) => acc + item.quedaPP, 0);
+            const sumPerdaRel = data.reduce((acc, item) => acc + item.perdaRelativa, 0);
+
+            const avgPreservada = sumPreservada / data.length;
+            const avgQueimada = sumQueimada / data.length;
+            const avgQuedaPP = sumQuedaPP / data.length;
+            const avgPerdaRel = sumPerdaRel / data.length;
+            const retencaoPct = (avgQueimada / avgPreservada) * 100;
+
+            // Encontrar indicador mais crítico no subconjunto
+            const maisCritico = [...data].sort((a, b) => b.quedaPP - a.quedaPP)[0];
+
+            // Formatação brasileira (vírgula decimal)
+            const fmt = (num, dec = 1) => num.toFixed(dec).replace('.', ',');
+
+            document.getElementById('kpi-preservada').textContent = `${fmt(avgPreservada)}%`;
+            document.getElementById('kpi-preservada-sub').textContent = 
+                data.length === 1 ? `Nível de referência (${data[0].indicador})` : `Média dos ${data.length} indicadores selecionados`;
+
+            document.getElementById('kpi-queimada').textContent = `${fmt(avgQueimada)}%`;
+            document.getElementById('kpi-retencao').textContent = `Retém ${fmt(retencaoPct)}%`;
+
+            document.getElementById('kpi-perda-pp').textContent = `-${fmt(avgQuedaPP)} p.p.`;
+            document.getElementById('kpi-perda-rel').textContent = `${fmt(avgPerdaRel)}%`;
+
+            document.getElementById('kpi-critico-nome').textContent = maisCritico.indicador;
+            document.getElementById('kpi-critico-valor').textContent = `-${maisCritico.quedaPP} p.p. (${fmt(maisCritico.perdaRelativa, 2)}%)`;
+            document.getElementById('kpi-critico-ciclo').textContent = `${maisCritico.ciclo} • Maior impacto`;
+        }
+
+        // =========================================================================
+        // 5. VISUALIZAÇÕES (CHART.JS)
+        // =========================================================================
+        function updateMainBarChart(data, cenario) {
+            const ctx = document.getElementById('mainBarChart').getContext('2d');
+            
+            const labels = data.map(d => [d.indicador, `(${d.ciclo})`]);
+            let datasets = [];
+            let titleText = 'Comparativo de Indicadores: Preservada vs. Queimada';
+            let yAxisTitle = '% do Nível de Referência';
+
+            if (cenario === 'comparativo') {
+                datasets = [
+                    {
+                        label: 'Caatinga Preservada',
+                        data: data.map(d => d.preservada),
+                        backgroundColor: '#2E7D32',
+                        hoverBackgroundColor: '#1B5E20',
+                        borderRadius: 6,
+                        barPercentage: 0.75,
+                        categoryPercentage: 0.7
+                    },
+                    {
+                        label: 'Caatinga Queimada',
+                        data: data.map(d => d.queimada),
+                        backgroundColor: '#C62828',
+                        hoverBackgroundColor: '#8E0000',
+                        borderRadius: 6,
+                        barPercentage: 0.75,
+                        categoryPercentage: 0.7
+                    }
+                ];
+            } else if (cenario === 'preservada') {
+                titleText = 'Cenário Base: Caatinga Preservada';
+                datasets = [{
+                    label: 'Caatinga Preservada',
+                    data: data.map(d => d.preservada),
+                    backgroundColor: '#2E7D32',
+                    borderRadius: 6,
+                    barPercentage: 0.5
+                }];
+            } else if (cenario === 'queimada') {
+                titleText = 'Cenário Degradado: Caatinga Queimada';
+                datasets = [{
+                    label: 'Caatinga Queimada',
+                    data: data.map(d => d.queimada),
+                    backgroundColor: '#C62828',
+                    borderRadius: 6,
+                    barPercentage: 0.5
+                }];
+            } else if (cenario === 'deficit') {
+                titleText = 'Déficit Ambiental: Perda Absoluta por Queimada';
+                yAxisTitle = 'Queda em Pontos Percentuais (p.p.)';
+                datasets = [{
+                    label: 'Perda Absoluta (p.p.)',
+                    data: data.map(d => d.quedaPP),
+                    backgroundColor: '#D97706',
+                    borderRadius: 6,
+                    barPercentage: 0.5
+                }];
+            }
+
+            document.getElementById('main-chart-title').textContent = titleText;
+
+            if (mainBarChartInstance) {
+                mainBarChartInstance.destroy();
+            }
+
+            mainBarChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 26 }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const clickedItem = data[index];
+                            const indSelect = document.getElementById('filter-indicador');
+                            if (indSelect.value === clickedItem.indicador) {
+                                indSelect.value = 'Todos';
+                                showToast('Filtro de indicador removido.');
+                            } else {
+                                indSelect.value = clickedItem.indicador;
+                                showToast(`Filtrado por: ${clickedItem.indicador}`);
+                            }
+                            updateDashboard();
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0F172A',
+                            padding: 12,
+                            cornerRadius: 8,
+                            titleFont: { family: 'Inter', size: 13, weight: 'bold' },
+                            bodyFont: { family: 'Inter', size: 12 },
+                            callbacks: {
+                                title: (items) => data[items[0].dataIndex].indicador,
+                                label: (context) => {
+                                    const suffix = cenario === 'deficit' ? ' p.p.' : '%';
+                                    return `${context.dataset.label}: ${context.raw}${suffix}`;
+                                },
+                                afterBody: (items) => {
+                                    const item = data[items[0].dataIndex];
+                                    return [
+                                        `────────────────────`,
+                                        `Queda Absoluta: -${item.quedaPP} p.p.`,
+                                        `Perda Relativa: ${item.perdaRelativa.toFixed(2).replace('.', ',')}%`
+                                    ];
+                                }
+                            }
+                        },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            offset: 2,
+                            color: '#1E293B',
+                            font: {
+                                family: 'Inter',
+                                weight: '700',
+                                size: 12
+                            },
+                            formatter: (value) => cenario === 'deficit' ? `-${value} p.p.` : `${value}%`
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 110,
+                            ticks: {
+                                stepSize: 20,
+                                font: { family: 'Inter', size: 11 },
+                                color: '#64748B',
+                                callback: (val) => val <= 100 ? val : ''
+                            },
+                            title: {
+                                display: true,
+                                text: yAxisTitle,
+                                font: { family: 'Inter', size: 12, weight: '600' },
+                                color: '#334155'
+                            },
+                            grid: {
+                                color: '#E2E8F0',
+                                borderDash: [4, 4]
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: { family: 'Inter', size: 11, weight: '600' },
+                                color: '#334155'
+                            },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateRadarChart(data) {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            
+            // Para o radar ficar visualmente íntegro mesmo se 1 indicador for filtrado,
+            // usamos sempre os 4 eixos completos, mas destacamos o selecionado.
+            const labels = rawData.map(d => d.indicador);
+
+            if (radarChartInstance) {
+                radarChartInstance.destroy();
+            }
+
+            radarChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Caatinga Preservada (%)',
+                            data: rawData.map(d => d.preservada),
+                            backgroundColor: 'rgba(46, 125, 50, 0.18)',
+                            borderColor: '#2E7D32',
+                            pointBackgroundColor: '#2E7D32',
+                            pointBorderColor: '#fff',
+                            pointRadius: 4,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Caatinga Queimada (%)',
+                            data: rawData.map(d => d.queimada),
+                            backgroundColor: 'rgba(198, 40, 40, 0.22)',
+                            borderColor: '#C62828',
+                            pointBackgroundColor: '#C62828',
+                            pointBorderColor: '#fff',
+                            pointRadius: 4,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: { display: false },
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { family: 'Inter', size: 11, weight: '600' },
+                                usePointStyle: true,
+                                padding: 16
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#0F172A',
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: ${ctx.raw}%`
+                            }
+                        }
+                    },
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            min: 0,
+                            max: 100,
+                            ticks: {
+                                stepSize: 25,
+                                backdropColor: 'transparent',
+                                font: { size: 10 },
+                                color: '#64748B'
+                            },
+                            pointLabels: {
+                                font: { family: 'Inter', size: 11, weight: '600' },
+                                color: '#1E293B'
+                            },
+                            grid: { color: '#E2E8F0' },
+                            angleLines: { color: '#E2E8F0' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateImpactChart(data) {
+            const ctx = document.getElementById('impactHorizontalChart').getContext('2d');
+            
+            // Ordenar do maior impacto para o menor
+            const sorted = [...data].sort((a, b) => b.quedaPP - a.quedaPP);
+
+            if (impactHorizontalChartInstance) {
+                impactHorizontalChartInstance.destroy();
+            }
+
+            impactHorizontalChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sorted.map(d => d.indicador),
+                    datasets: [{
+                        label: 'Queda Absoluta (p.p.)',
+                        data: sorted.map(d => d.quedaPP),
+                        backgroundColor: sorted.map(d => 
+                            d.quedaPP >= 70 ? '#991B1B' : 
+                            d.quedaPP >= 55 ? '#C62828' : '#D97706'
+                        ),
+                        borderRadius: 6,
+                        barThickness: 26
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: { right: 85 }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0F172A',
+                            callbacks: {
+                                label: (ctx) => {
+                                    const item = sorted[ctx.dataIndex];
+                                    return `Queda: -${item.quedaPP} p.p. (${item.perdaRelativa.toFixed(2).replace('.', ',')}%)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'right',
+                            offset: 6,
+                            color: '#1E293B',
+                            font: { family: 'Inter', size: 11, weight: '700' },
+                            formatter: (val, ctx) => {
+                                const rel = sorted[ctx.dataIndex].perdaRelativa.toFixed(1).replace('.', ',');
+                                return `-${val} p.p. (${rel}%)`;
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 85,
+                            grid: { color: '#F1F5F9' },
+                            ticks: { font: { size: 11 }, color: '#64748B' }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { font: { family: 'Inter', size: 12, weight: '600' }, color: '#1E293B' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // =========================================================================
+        // 6. ATUALIZAÇÃO DO PAINEL DE DATA STORYTELLING
+        // =========================================================================
+        function updateStorytelling() {
+            const ciclo = document.getElementById('filter-ciclo').value;
+            const indicador = document.getElementById('filter-indicador').value;
+
+            let key = 'Todos';
+            if (indicador !== 'Todos') {
+                key = indicador;
+            } else if (ciclo !== 'Todos') {
+                key = ciclo;
+            }
+
+            const story = storytellingMap[key] || storytellingMap['Todos'];
+
+            document.getElementById('story-title').textContent = story.title;
+            document.getElementById('story-badge').textContent = story.badge;
+            document.getElementById('story-context').textContent = story.context;
+            document.getElementById('story-conflict').textContent = story.conflict;
+            document.getElementById('story-climax').textContent = story.climax;
+            document.getElementById('story-resolution').textContent = story.resolution;
+        }
+
+        // =========================================================================
+        // 7. TABELA ANALÍTICA INTERATIVA E ORDENAÇÃO
+        // =========================================================================
+        function sortTable(column) {
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'desc';
+            }
+
+            // Atualizar ícones de ordenação
+            ['indicador', 'ciclo', 'preservada', 'queimada', 'quedaPP', 'perdaRelativa'].forEach(col => {
+                const el = document.getElementById(`sort-${col}`);
+                if (el) {
+                    if (col === currentSort.column) {
+                        el.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+                    } else {
+                        el.textContent = '↕';
+                    }
+                }
+            });
+
+            renderTable(getFilteredData());
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('analytics-table-body');
+            tbody.innerHTML = '';
+
+            const sortedData = [...data].sort((a, b) => {
+                let valA = a[currentSort.column];
+                let valB = b[currentSort.column];
+
+                // Para perdaRelativa (valores negativos), ordenar pela magnitude da perda se desc
+                if (currentSort.column === 'perdaRelativa') {
+                    valA = Math.abs(valA);
+                    valB = Math.abs(valB);
+                }
+
+                if (typeof valA === 'string') {
+                    return currentSort.direction === 'asc' 
+                        ? valA.localeCompare(valB) 
+                        : valB.localeCompare(valA);
+                }
+                return currentSort.direction === 'asc' ? valA - valB : valB - valA;
+            });
+
+            document.getElementById('table-count').textContent = `Exibindo ${sortedData.length} de ${rawData.length} indicadores`;
+
+            sortedData.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/90 transition-colors';
+
+                // Badge de severidade
+                let badgeClass = 'bg-amber-100 text-amber-800 border-amber-200';
+                if (item.severidade === 'Crítica') {
+                    badgeClass = 'bg-red-100 text-red-900 border-red-300 font-bold';
+                } else if (item.severidade === 'Muito Alta') {
+                    badgeClass = 'bg-orange-100 text-orange-900 border-orange-200';
+                }
+
+                tr.innerHTML = `
+                    <td class="py-3.5 px-5 font-semibold text-slate-900">${item.indicador}</td>
+                    <td class="py-3.5 px-4 text-slate-600 text-xs font-medium">
+                        <span class="px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200">${item.ciclo}</span>
+                    </td>
+                    <td class="py-3.5 px-4">
+                        <div class="flex items-center gap-2.5">
+                            <span class="font-bold text-preservada w-10">${item.preservada}%</span>
+                            <div class="w-24 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div class="bg-preservada h-2 rounded-full" style="width: ${item.preservada}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-3.5 px-4">
+                        <div class="flex items-center gap-2.5">
+                            <span class="font-bold text-queimada w-10">${item.queimada}%</span>
+                            <div class="w-24 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div class="bg-queimada h-2 rounded-full" style="width: ${item.queimada}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-3.5 px-4 font-bold text-slate-800">-${item.quedaPP} p.p.</td>
+                    <td class="py-3.5 px-4 font-semibold text-queimada">${item.perdaRelativa.toFixed(2).replace('.', ',')}%</td>
+                    <td class="py-3.5 px-5">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}">
+                            ${item.severidade}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // =========================================================================
+        // 8. EXPORTAÇÃO DE DADOS (CSV) E NOTIFICAÇÕES
+        // =========================================================================
+        function exportCSV() {
+            const data = getFilteredData();
+            const headers = [
+                'Indicador',
+                'Ciclo Associado',
+                'Caatinga Preservada (%)',
+                'Caatinga Queimada (%)',
+                'Queda Absoluta (p.p.)',
+                'Perda Relativa (%)',
+                'Severidade'
+            ];
+
+            const rows = data.map(item => [
+                `"${item.indicador}"`,
+                `"${item.ciclo}"`,
+                item.preservada,
+                item.queimada,
+                `-${item.quedaPP}`,
+                `"${item.perdaRelativa.toFixed(2).replace('.', ',')}%"`,
+                `"${item.severidade}"`
+            ]);
+
+            // BOM UTF-8 para abrir corretamente com acentos no Excel
+            const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'bi_impacto_queimadas_caatinga.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast('Arquivo CSV exportado com sucesso!');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            toastMsg.textContent = message;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // =========================================================================
+        // 9. INICIALIZAÇÃO DO PAINEL
+        // =========================================================================
+        window.addEventListener('DOMContentLoaded', () => {
+            updateDashboard();
+        });
+    </script>
+</body>
+</html>
